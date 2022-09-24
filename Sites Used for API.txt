@@ -1,0 +1,2 @@
+https://timeapi.io/swagger/index.html : Get timezone
+https://lirarate.org/ : Get lira rate
