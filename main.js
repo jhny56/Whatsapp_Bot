@@ -15,10 +15,10 @@ mylib.GetTimeZone(LBtime,"Asia/Beirut");
 setInterval(() => mylib.GetTimeZone(LBtime,"Asia/Beirut"), 30 * 60 * 1000); //update Beirut time every 30 min the values
 
 const lira = { buy: 0, sell: 0 };
-setTimeout(() => mylib.GetLiraRate(lira,LBtime), 2 * 1000)
+setTimeout(() => mylib.GetLiraRate(lira,LBtime), 2 * 1000);
 setInterval(() => mylib.GetLiraRate(lira,LBtime), 10 * 60 * 1000); //update lira every 10 min the values
 
-const UKtime = {year:0,month:0,day:0,hour:0,minute:0,seconds:0,milliseconds:0,timezone:"",};
+const Countrytime = {year:0,month:0,day:0,hour:0,minute:0,seconds:0,milliseconds:0,timezone:"",};
 
 var arrayUsers = JSON.parse(fs.readFileSync('Users.txt').toString()); //we should put [] in Users.txt if its empty
 function User(phonenumber,firstname,lastname,age){
@@ -27,6 +27,7 @@ function User(phonenumber,firstname,lastname,age){
     this.lastname = lastname;
     this.age = age;
     this.isSubscribed = false;
+    this.countryoption = false;
 }
 setInterval(() => {
   console.log("the array of users : " , arrayUsers);
@@ -54,7 +55,15 @@ function newMessage(msg){
   var userindex = mylib.GetUserIndex(arrayUsers,msg.from);
   console.log("The user index for the number :", phonenumber , "is = ", userindex , "\n");
 
-  if (msg.body.toLowerCase() == '/subscribe' && userindex == undefined) {handleSubscription(phonenumber); return; }
+  if (msg.body.toLowerCase() == '/subscribe' ) {
+    if (userindex == undefined){
+      handleSubscription(phonenumber); return; 
+    }
+    else{
+      client.sendMessage(phonenumber, "Already subscribed on " + phonenumber);
+    }
+  }
+  
 
   CheckUsersInfo(userindex,arrayUsers,client,phonenumber,msg); //check the user info and ask for misssing ones
 
@@ -122,17 +131,24 @@ function CheckUsersInfo(userindex,arrayUsers,client,phonenumber,msg){
         arrayUsers[userindex].age = msg.body;
         fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
         console.log("we got our last name \n :" ,msg.body);
+        client.sendMessage(phonenumber, "your number is "+ phonenumber +" \nDo you confirm subscription ? (Y/N)" + JSON.stringify(arrayUsers[userindex],null,2));
       }
       else{
         client.sendMessage(phonenumber, "your number is "+ phonenumber +" \nPlease send your age. \n it needs to be an integer between 12 and 100");
         return;
       }
     }
-    else if(!arrayUsers[userindex].isSubscribed){
+    else if(!arrayUsers[userindex].isSubscribed && msg.body.toLowerCase() == "y"){
       arrayUsers[userindex].isSubscribed = true;
       fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
       client.sendMessage(phonenumber, "Subscription with phone : " + arrayUsers[userindex].phonenumber+ "\n first name : " + arrayUsers[userindex].firstname + "\n lastname : " + arrayUsers[userindex].lastname + "\n age : " + arrayUsers[userindex].age +"\n Completed !");
       console.log("all the requirement are met so Is subscribed is = true \n");
+    }
+    else if(msg.body.toLowerCase() == "n"){
+      arrayUsers.splice(userindex,1);
+      fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
+      client.sendMessage(phonenumber, "your number is "+ phonenumber +" \n Subscription Canceled.");
+      console.log("Canceled subcription \n")
     }
 
   }
@@ -148,12 +164,12 @@ function CommandsForSubscribedUsers(msg,client){
 
   if (msg.body.toLowerCase() == '/lirarate') { handleLiraRate(client, msg); return; }
 
-  if (msg.body.toLowerCase() == '/uktimezone') {handleUKTime(client,msg); return;}
+  if (msg.body.toLowerCase() == '/countrytimezone' || arrayUsers[userindex].countryoption) {handleCountryTime(client,msg,arrayUsers,userindex); return;}
 
   return;
 }
 function handleHelp(client, msg) {
-  var MsgCommandArray = ["/LiraRate \n", "/UKTimeZone \n", "/SendUSDT \n"];
+  var MsgCommandArray = ["/LiraRate \n", "/CountryTimeZone \n", "/SendUSDT \n"];
   console.log("Help command initiated \n");
   client.sendMessage(msg.from, "Commands : \n" + MsgCommandArray.toString());
   return;
@@ -166,9 +182,17 @@ Sell 1 USD for ${lira.sell} LBP`)
 
   return;
 }
-function handleUKTime(client,msg){
-  mylib.GetTimeZone(UKtime,"Europe/London");
-  setTimeout(() => client.sendMessage(msg.from, "Time in " + UKtime.timezone + " : " +UKtime.hour + ":" +UKtime.minute + ":" + UKtime.seconds),2*1000);
+function handleCountryTime(client,msg,arrayUsers, userindex){
+  client.sendMessage(msg.from, "Which capital do you need? \n command example: Europe/London");
+  
+  if(arrayUsers[userindex].countryoption = true){
+    mylib.GetTimeZone(Countrytime,msg.body);
+    setTimeout(() => client.sendMessage(msg.from, "Time in " + Countrytime.timezone + " : " +Countrytime.hour + ":" +Countrytime.minute + ":" + Countrytime.seconds),2*1000);
+    arrayUsers[userindex].countryoption = false;
+  }else{
+    arrayUsers[userindex].countryoption = true;
+  }
+  
   return
 }
 
