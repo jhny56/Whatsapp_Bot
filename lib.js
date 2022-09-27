@@ -7,9 +7,11 @@ module.exports = {
     checkIfage,
     GetUserIndex,
     axiosTimeApi,
-
+    GetWorldNews,
+    
 }
 
+//LIRA RATE API
 async function axiosLiraRate(time){
     try{
         response_Lira = await axios.get('https://lirarate.org/wp-json/lirarate/v2/all?currency=LBP&_ver=t'+time.year.toString()+time.month.toString()+time.day.toString()+time.hour.toString());  
@@ -34,6 +36,7 @@ function GetLiraRate(lira,time){
     
 }    
 
+//TIME ZONE API
 async function axiosTimeApi(location){
     try{
         response_Time = await axios.get('https://timeapi.io/api/Time/current/zone?timeZone=' + location); 
@@ -68,6 +71,55 @@ async function GetTimeZone(time,location){
     
 }    
 
+//WORLD NEWS API
+async function axiosWorldNewsApi(randomWord){
+    try{
+        response_News = await axios.get(" https://api.worldnewsapi.com/search-news?api-key=4ddc4ad182c048d089c5ba1131cb8cb9&number=10&text=" + randomWord + "." ); 
+        console.log("Request Completed -NewsApi");
+    }
+    catch(err){
+        console.log("Error in news api : " ,err);       
+        return false;
+    }
+    return response_News;
+}
+async function GetWorldNews(ourresponse,ourimage,randomWord){
+    console.log("Get world news command initiated \n");
+
+    await axiosWorldNewsApi(randomWord).then(response_News => {
+        
+        randomNewsIndex = parseInt(Math.random() * response_News.data.news.length);
+
+        ourresponse.title = response_News.data.news[randomNewsIndex].title;
+        var count = 0;
+        var ourtext = "";
+
+        for(var i = 0; i<response_News.data.news[randomNewsIndex].text.length;i++){
+            ourtext += response_News.data.news[randomNewsIndex].text[i];
+            if(response_News.data.news[randomNewsIndex].text[i] == "." && response_News.data.news[randomNewsIndex].text[i+1] == " " ){
+                count++;
+            }
+            if(count >2){
+                break;
+            }
+        }
+
+        
+        
+        ourresponse.text = ourtext;
+        ourresponse.url = response_News.data.news[randomNewsIndex].url;
+        ourimage.image = response_News.data.news[randomNewsIndex].image;
+        console.log(JSON.stringify(ourresponse,null,2));
+        console.log(JSON.stringify(ourimage,null,2));
+        
+    }).catch(err => {
+        console.log(err)
+    })
+    
+} 
+
+
+//CHECKING REGEX FOR NAME AND AGE
 function checkIfname(name){
     for(var i = 0;i<name.length;i++){
       if (! /^[a-zA-Z]+$/.test(name[i])) { // if there is a character that is not between a-z and A-Z /^[a-zA-Z]+$/.test(name[i]) will return true
@@ -83,6 +135,7 @@ function checkIfage(age){
     return false;
 }
   
+//GET USER INDEX IN ARRAY
 function GetUserIndex(arrayUsers,phonenumber){
     for(var i = 0; i<arrayUsers.length ; i++){
         if(arrayUsers[i].phonenumber ==phonenumber ){
@@ -90,3 +143,4 @@ function GetUserIndex(arrayUsers,phonenumber){
         }
     }
 }
+
