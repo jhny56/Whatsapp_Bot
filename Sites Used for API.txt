@@ -1,3 +1,3 @@
 https://timeapi.io/swagger/index.html : Get timezone
 https://lirarate.org/ : Get lira rate
-https://worldnewsapi.com/console/#Dashboard : Get World news
+https://worldnewsapi.com : Get World news
