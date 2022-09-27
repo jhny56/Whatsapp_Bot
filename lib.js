@@ -6,6 +6,7 @@ module.exports = {
     checkIfname,
     checkIfage,
     GetUserIndex,
+    axiosTimeApi,
 
 }
 
@@ -38,17 +39,18 @@ async function axiosTimeApi(location){
         response_Time = await axios.get('https://timeapi.io/api/Time/current/zone?timeZone=' + location); 
 
         console.log("Request Completed -TimeAPI");
+        return response_Time.data
     }
     catch(err){
-        response_Time = await axiosTimeApi(location);
-        return response_Time.data;
+        console.log("Error in time api : " ,err);       
+        return false;
     }
 
-return response_Time.data;
+
 }
-function GetTimeZone(time,location){
+async function GetTimeZone(time,location){
     console.log("Get TimeZone command initiated \n");
-    axiosTimeApi(location).then(response_Time => {
+    await axiosTimeApi(location).then(response_Time => {
         time.year = response_Time.year;
         time.month = response_Time.month;
         time.day = response_Time.day;
@@ -59,16 +61,16 @@ function GetTimeZone(time,location){
         time.timezone = response_Time.timeZone;
 
         console.log("Time Updated for " + location + " Time : " , time);
-
+        return true;
     }).catch(err => {
-        console.log(err);
+        return false;
     })
     
 }    
 
 function checkIfname(name){
     for(var i = 0;i<name.length;i++){
-      if (! /^[a-zA-Z]+$/.test(name[i])) {
+      if (! /^[a-zA-Z]+$/.test(name[i])) { // if there is a character that is not between a-z and A-Z /^[a-zA-Z]+$/.test(name[i]) will return true
         return false
       }
     }

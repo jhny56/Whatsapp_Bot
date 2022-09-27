@@ -1,15 +1,15 @@
+// MY LIBRARIES
 const mylib = require('./lib');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
-
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const { captureRejectionSymbol } = require('node-telegram-bot-api');
 const client = new Client({
     authStrategy: new LocalAuth()
 });
- 
 const axios = require("axios").default;
 
+//MY OBJECTS
 const LBtime = {year:0,month:0,day:0,hour:0,minute:0,seconds:0,milliseconds:0,timezone:"",};
 mylib.GetTimeZone(LBtime,"Asia/Beirut");
 setInterval(() => mylib.GetTimeZone(LBtime,"Asia/Beirut"), 30 * 60 * 1000); //update Beirut time every 30 min the values
@@ -27,34 +27,37 @@ function User(phonenumber,firstname,lastname,age){
     this.lastname = lastname;
     this.age = age;
     this.isSubscribed = false;
-    this.countryoption = false;
+    this.option = "";
 }
-setInterval(() => {
-  console.log("the array of users : " , arrayUsers);
-}, 30*1000);
 
 
+//READY CLIENT
 client.on('qr', qr => {
     qrcode.generate(qr, { small: true });
 });
-
 client.on('ready', () => {
     console.log('Client is ready!');
 });
 
-client.on('message',newMessage);
+//LISTENER TO NEW MESSAGES
+client.on('message',OnNewMessage);
 
-function newMessage(msg){
+// On new message
+function OnNewMessage(msg){
 
+  //get name
   let name = msg.from;
   if (msg.notifyName) name = msg.notifyName;
   console.log("you got a new msg from " + name + " : ", msg.body, "\n");
 
+  //get phone number
   var phonenumber = msg.from;
 
+  //get user index
   var userindex = mylib.GetUserIndex(arrayUsers,msg.from);
   console.log("The user index for the number :", phonenumber , "is = ", userindex , "\n");
 
+  //handle subscription
   if (msg.body.toLowerCase() == '/subscribe' ) {
     if (userindex == undefined){
       handleSubscription(phonenumber); return; 
@@ -64,15 +67,20 @@ function newMessage(msg){
     }
   }
   
+  if(userindex != undefined && arrayUsers[userindex].isSubscribed == false){
+    console.log("there exist a user object with this phone number");
+    CheckUsersInfo(userindex,arrayUsers,client,phonenumber,msg); //check the user info and ask for missing ones
+  }
 
-  CheckUsersInfo(userindex,arrayUsers,client,phonenumber,msg); //check the user info and ask for misssing ones
-
+  //handle the commands of subscribed users
   if(arrayUsers[userindex].isSubscribed === true){
-    CommandsForSubscribedUsers(msg,client);
+    handleUserOption(client,msg,arrayUsers,userindex);
+    CommandsForSubscribedUsers(msg,client, arrayUsers,userindex);
   }
   
 }
 
+// For Subscription
 function handleSubscription(phonenumber){
 
   var userindex = mylib.GetUserIndex(arrayUsers,phonenumber);
@@ -94,11 +102,9 @@ function handleSubscription(phonenumber){
   return;
 
 }
-
 function CheckUsersInfo(userindex,arrayUsers,client,phonenumber,msg){
 
-  if(userindex != undefined && arrayUsers[userindex].isSubscribed == false){
-    console.log("there exist a user object with this phone number");
+ 
     if(!arrayUsers[userindex].firstname ){
       if(mylib.checkIfname(msg.body)){
         arrayUsers[userindex].firstname = msg.body;
@@ -143,61 +149,92 @@ function CheckUsersInfo(userindex,arrayUsers,client,phonenumber,msg){
       fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
       client.sendMessage(phonenumber, "Subscription with phone : " + arrayUsers[userindex].phonenumber+ "\n first name : " + arrayUsers[userindex].firstname + "\n lastname : " + arrayUsers[userindex].lastname + "\n age : " + arrayUsers[userindex].age +"\n Completed !");
       console.log("all the requirement are met so Is subscribed is = true \n");
+      arrayUsers[userindex].option = ""
     }
     else if(msg.body.toLowerCase() == "n"){
       arrayUsers.splice(userindex,1);
       fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
       client.sendMessage(phonenumber, "your number is "+ phonenumber +" \n Subscription Canceled.");
       console.log("Canceled subcription \n")
+      arrayUsers[userindex].option = ""
     }
 
-  }
+  
 
   return;
 
 }
 
-function CommandsForSubscribedUsers(msg,client){
+//For Subscribed Users
+function CommandsForSubscribedUsers(msg,client,arrayUsers,userindex){
 
 
-  if (msg.body.toLowerCase() == '/help') { handleHelp(client, msg); return; }
+  if (arrayUsers[userindex].option == "/help") { handleHelp(client, msg ,arrayUsers,userindex); return; }
 
-  if (msg.body.toLowerCase() == '/lirarate') { handleLiraRate(client, msg); return; }
+  if (arrayUsers[userindex].option == "/lirarate") { handleLiraRate(client, msg ,arrayUsers,userindex); return; }
 
-  if (msg.body.toLowerCase() == '/countrytimezone' || arrayUsers[userindex].countryoption) {handleCountryTime(client,msg,arrayUsers,userindex); return;}
+  if (arrayUsers[userindex].option == "/countrytimezone" ) {handleCountryTime(client,msg,arrayUsers,userindex); return;}
 
   return;
 }
-function handleHelp(client, msg) {
+function handleHelp(client, msg ,arrayUsers,userindex) {
   var MsgCommandArray = ["/LiraRate \n", "/CountryTimeZone \n", "/SendUSDT \n"];
   console.log("Help command initiated \n");
   client.sendMessage(msg.from, "Commands : \n" + MsgCommandArray.toString());
+  arrayUsers[userindex].option = "";
   return;
 }
-function handleLiraRate(client, msg) {
+function handleLiraRate(client, msg ,arrayUsers,userindex) {
   console.log("LiraRate command initiated \n");
   client.sendMessage(msg.from, 
 `Buy 1 USD for ${lira.buy} LBP
 Sell 1 USD for ${lira.sell} LBP`)
 
+arrayUsers[userindex].option = "";
+
   return;
 }
-function handleCountryTime(client,msg,arrayUsers, userindex){
-  client.sendMessage(msg.from, "Which capital do you need? \n command example: Europe/London");
+async function handleCountryTime(client,msg,arrayUsers, userindex){
   
-  if(arrayUsers[userindex].countryoption = true){
-    mylib.GetTimeZone(Countrytime,msg.body);
-    setTimeout(() => client.sendMessage(msg.from, "Time in " + Countrytime.timezone + " : " +Countrytime.hour + ":" +Countrytime.minute + ":" + Countrytime.seconds),2*1000);
-    arrayUsers[userindex].countryoption = false;
-  }else{
-    arrayUsers[userindex].countryoption = true;
+  
+  if(msg.body.toLowerCase() != "/countrytimezone"){
+    if(await CheckForCountry(msg.body)){
+    await mylib.GetTimeZone(Countrytime,msg.body);
+    client.sendMessage(msg.from, "Time in " + Countrytime.timezone + " : " +Countrytime.hour + ":" +Countrytime.minute + ":" + Countrytime.seconds);
+    arrayUsers[userindex].option = "";
+    }
+    else{
+      client.sendMessage(msg.from, "Input inccorrect \n command example: Europe/London");
+    }
+  }
+  else{
+    client.sendMessage(msg.from, "Which capital do you need? \n command example: Europe/London");
   }
   
   return
 }
 
+async function CheckForCountry(location){
+  console.log("Checking = ", await mylib.axiosTimeApi(location))
+  return await mylib.axiosTimeApi(location)
+  
+}
+
+function handleUserOption(client,msg,arrayUsers,userindex){
+  if (msg.body.toLowerCase() == '/help') { arrayUsers[userindex].option = "/help"; return; }
+
+  if (msg.body.toLowerCase() == '/lirarate') { arrayUsers[userindex].option = "/lirarate"; return; }
+
+  if (msg.body.toLowerCase() == '/countrytimezone' ) {arrayUsers[userindex].option = "/countrytimezone"; return;}
+
+  return;
+}
 
 client.initialize();
+
+setInterval(() => {
+  console.log("the array of users : " , arrayUsers);
+}, 30*1000);
 
 let ExampleMsg =  {
     _data: {
