@@ -104,8 +104,6 @@ async function GetWorldNews(ourresponse,ourimage,randomWord){
             }
         }
 
-        
-        
         ourresponse.text = ourtext;
         ourresponse.url = response_News.data.news[randomNewsIndex].url;
         ourimage.image = response_News.data.news[randomNewsIndex].image;

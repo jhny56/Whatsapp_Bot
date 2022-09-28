@@ -258,74 +258,127 @@ async function CheckForCountry(location){
 }
 
 async function handleMyNews(client, msg ,arrayUsers,userindex){
-
-  var randomSubject = arrayUsers[userindex].news[parseInt( Math.random() * (arrayUsers[userindex].news.length ) )] //maths random give value between 0 and 1
-  console.log("random subject : ", randomSubject);
-
-  var randomWord = allnewsOptions[randomSubject][parseInt( Math.random() * (allnewsOptions[randomSubject].length ) )];
-  console.log("random word : ", randomWord);
-
-  await mylib.GetWorldNews(ourresponse,ourimage,randomWord);
   try{
-    const media = await MessageMedia.fromUrl(ourimage.image);
-    await client.sendMessage(msg.from,media);
-  }catch{
-    console.log("could not download image");
+    var randomSubject = arrayUsers[userindex].news[parseInt( Math.random() * (arrayUsers[userindex].news.length ) )] //maths random give value between 0 and 1
+    console.log("random subject : ", randomSubject);
+
+    var randomWord = allnewsOptions[randomSubject][parseInt( Math.random() * (allnewsOptions[randomSubject].length ) )];
+    console.log("random word : ", randomWord);
+  
+    await mylib.GetWorldNews(ourresponse,ourimage,randomWord);
+    try{
+      const media = await MessageMedia.fromUrl(ourimage.image);
+      await client.sendMessage(msg.from,media);
+    }catch{
+      console.log("could not download image");
+    }
+    await client.sendMessage(msg.from,JSON.stringify(ourresponse.title,null,2) +"\n\n" + JSON.stringify(ourresponse.text,null,2) +"\n\n"  +JSON.stringify(ourresponse.url,null,2) +"\n\n");
+    arrayUsers[userindex].option = "";
   }
-  await client.sendMessage(msg.from,JSON.stringify(ourresponse.title,null,2) +"\n\n" + JSON.stringify(ourresponse.text,null,2) +"\n\n"  +JSON.stringify(ourresponse.url,null,2) +"\n\n");
-  arrayUsers[userindex].option = "";
+  catch
+  {
+    client.sendMessage(msg.from,"You have no news.")
+  }
 }
 
 function handleAddnews(client, msg ,arrayUsers,userindex){
 
 console.log("Handeling add news initiated");
 
-  if(msg.body.toLowerCase() != "/addnews"){
-    if(msg.body.toLowerCase() == "cancel"){
+var msgArray = GetUserInputNews(msg.body);
+for(var i = 0 ; i < msgArray.length ; i++){
+  
+  if(msgArray[i].toLowerCase() != "/addnews"){
+    
+    if(msgArray[i].toLowerCase() == "cancel"){
       console.log("option = empty ");
       arrayUsers[userindex].option = "";
-      return
+      break;
     }
-    else if(Object.keys(allnewsOptions).includes(msg.body.toLowerCase()) && !arrayUsers[userindex].news.includes(msg.body) ){
-      arrayUsers[userindex].news.push(msg.body.toLowerCase());
+    else if(Object.keys(allnewsOptions).includes(msgArray[i].toLowerCase()) && !arrayUsers[userindex].news.includes(msgArray[i].toLowerCase()) ){
+      arrayUsers[userindex].news.push(msgArray[i].toLowerCase());
       fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
-      client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
+      
     }
     else{
       client.sendMessage(msg.from,"no available news option for this subject");
+      break;
     }
   }  
   else{
     client.sendMessage(msg.from,"Available news option : " + JSON.stringify(Object.keys(allnewsOptions),null,2));
-    client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
+    client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news) + "\n Write the subjects you want \n ex : Science politcs japan");
   }
+}
+
+client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
 
 }
+
 function handleRemovenews(client, msg ,arrayUsers,userindex){
 
   console.log("Handeling remove news initiated");
   
-    if(msg.body.toLowerCase() != "/removenews"){
-      if(msg.body.toLowerCase() == "cancel"){
+  var msgArray = GetUserInputNews(msg.body);
+  for(var i = 0 ; i < msgArray.length ; i++){
+    
+    if(msgArray[i].toLowerCase() != "/removenews"){
+      
+      if(msgArray[i].toLowerCase() == "cancel"){
         console.log("option = empty ");
         arrayUsers[userindex].option = "";
-        return
+        break;
       }
-      else if(arrayUsers[userindex].news.includes(msg.body.toLowerCase()) ){
-        
-        arrayUsers[userindex].news.splice(arrayUsers[userindex].news.indexOf(msg.body),1); //indexof give index of where the msg exist in the array
+      else if(arrayUsers[userindex].news.includes(msgArray[i].toLowerCase()) ){
+        arrayUsers[userindex].news.splice(arrayUsers[userindex].news.indexOf(msgArray[i].toLowerCase()),1); //indexof give index of where the msg exist in the array
         fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
-        client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
+        
       }
       else{
         client.sendMessage(msg.from,"no available news option for this subject");
+        break;
       }
     }  
     else{
-      client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
+      client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news) + "\n Write the subjects you want \n ex : Science politcs japan");
     }
-  
   }
+  
+  client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
+  
+}
+  
+
+// function handleRemovenews(client, msg ,arrayUsers,userindex){
+
+//   console.log("Handeling remove news initiated");
+  
+//     if(msg.body.toLowerCase() != "/removenews"){
+//       if(msg.body.toLowerCase() == "cancel"){
+//         console.log("option = empty ");
+//         arrayUsers[userindex].option = "";
+//         return
+//       }
+//       else if(arrayUsers[userindex].news.includes(msg.body.toLowerCase()) ){
+        
+//         arrayUsers[userindex].news.splice(arrayUsers[userindex].news.indexOf(msg.body.toLowerCase()),1); //indexof give index of where the msg exist in the array
+//         fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
+//         client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
+//       }
+//       else{
+//         client.sendMessage(msg.from,"no available news option for this subject");
+//       }
+//     }  
+//     else{
+//       client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
+//     }
+  
+// }
+
+function GetUserInputNews(usermsg){
+  usermsg = usermsg.split(" ");
+  return usermsg;
+}
 
 client.initialize();
 
