@@ -43,7 +43,7 @@ function User(phonenumber,firstname,lastname,age){
 var ourresponse = {title:"" , text: "",url:"" }
 var ourimage = {image : ""}
 var allnewsOptions = {
-  science : ["Artificial%20Intelligence","Engineers","Biology","Stem%20Cells","science"],
+  science : ["Artificial%20Intelligence","Engineers","Biology","Stem%20Cells","science","atoms","bacteria","carbon","galaxy","scientific","scientifically","experiments","scientists"],
   politics : ["Russia","America","Prime%20Minister","President","oil","natural%20gaz"],
   japan: ["japan", "anime", "japanese","tokyo","pokemon"]
 }
