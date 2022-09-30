@@ -120,7 +120,7 @@ async function GetWorldNews(ourresponse,ourimage,randomWord){
 //CHECKING REGEX FOR NAME AND AGE
 function checkIfname(name){
     for(var i = 0;i<name.length;i++){
-      if (! /^[a-zA-Z]+$/.test(name[i])) { // if there is a character that is not between a-z and A-Z /^[a-zA-Z]+$/.test(name[i]) will return true
+      if (! /^[a-zA-Z-]+$/.test(name[i])) { // if there is a character that is not between a-z and A-Z /^[a-zA-Z]+$/.test(name[i]) will return false
         return false
       }
     }

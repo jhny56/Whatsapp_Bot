@@ -11,7 +11,6 @@ const client = new Client({
 
 //FILE MANAGER LIBRARIES
 const fs = require('fs');
-const { randomBytes } = require('crypto');
 
 //AXIOS LIBRARIES
 const axios = require("axios").default;
@@ -40,12 +39,14 @@ function User(phonenumber,firstname,lastname,age){
 }
 
 //OBJECTS FOR WORLD NEWS
-var ourresponse = {title:"" , text: "",url:"" }
-var ourimage = {image : ""}
+var newsResponse = {title:"" , text: "",url:"" }
+var newsImage = {image : ""}
 var allnewsOptions = {
-  science : ["Artificial%20Intelligence","Engineers","Biology","Stem%20Cells","science","atoms","bacteria","carbon","galaxy","scientific","scientifically","experiments","scientists"],
-  politics : ["Russia","America","Prime%20Minister","President","oil","natural%20gaz"],
-  japan: ["japan", "anime", "japanese","tokyo","pokemon"]
+  science : ["Artificial%20Intelligence","Engineers","Biology","Stem%20Cells","science","atoms",
+            "bacteria","carbon","galaxy","scientific","scientifically","experiments","scientists",
+            ],
+  politics : ["army","war","Prime%20Minister","President","oil","natural%20gaz"],
+  japan: ["japan", "anime", "japanese","tokyo","pokemon",]
 }
 
 
@@ -63,201 +64,198 @@ client.on('message',OnNewMessage);
 // ON NEW MESSAGE
 function OnNewMessage(msg){
 
-  // arrayUsers = JSON.parse(fs.readFileSync('Users.txt').toString());
-
-  //get name
-  let name = msg.from;
-  if (msg.notifyName) name = msg.notifyName;
-  console.log("you got a new msg from " + name + " : ", msg.body, "\n");
-
-  //get phone number
+  //get phone number and message
   var phonenumber = msg.from;
+  var userMessage = msg.body;
+
+  console.log("you got a new msg from " + phonenumber + " : ", userMessage, "\n");
 
   //get user index in array
-  var userindex = mylib.GetUserIndex(arrayUsers,msg.from);
+  var userindex = mylib.GetUserIndex(arrayUsers,phonenumber);
   console.log("The user index for the number :", phonenumber , "is = ", userindex , "\n");
 
   //handle subscription if user not registered
-  if (msg.body.toLowerCase() == '/subscribe' ) {
+  if (userMessage.toLowerCase() == '/sub') {
     if (userindex == undefined){
-      handleSubscription(phonenumber); return;  //Add phone number to user arrays
+      handleSubscription(arrayUsers,userindex,phonenumber); return;  //Add phone number to user arrays
     }
     else{
       client.sendMessage(phonenumber, "Already subscribed on " + phonenumber);
     }
   }
   
-  if(userindex != undefined && arrayUsers[userindex].isSubscribed == false){
+  if(arrayUsers[userindex].option == "/sub"){
     console.log("there exist a user object with this phone number");
-    CheckUsersInfo(userindex,arrayUsers,client,phonenumber,msg); //check the user info and ask for missing ones
+    //check the user info and ask for missing ones
+    CheckUsersInfo(arrayUsers,userindex,phonenumber,userMessage);
   }
 
   //handle the commands of subscribed users
-  if(arrayUsers[userindex].isSubscribed === true){
-    handleUserOption(client,msg,arrayUsers,userindex);
-    CommandsForSubscribedUsers(msg,client, arrayUsers,userindex);
+  if(arrayUsers[userindex].isSubscribed == true){
+    console.log("handeling subscribed users")
+    handleUserOption(arrayUsers,userindex,userMessage);
+    CommandsForSubscribedUsers(arrayUsers,userindex,phonenumber,userMessage);
   }
   
 }
 
 // For Subscription
-function handleSubscription(phonenumber){
+function handleSubscription(arrayUsers,userindex,phonenumber){
+  
+  console.log("the phone number does not exist in the array \n");
+  
+  //added the new user
+  arrayUsers.push(new User(phonenumber));
+  fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
+  console.log("Object User is created with a phone number :" ,phonenumber,"\n");
 
-  var userindex = mylib.GetUserIndex(arrayUsers,phonenumber);
-  console.log("Checking if the phone number exist in our Array : UserIndex = ", userindex,"\n");
-  if(!userindex){
-    console.log("the phone number does not exist in the array \n");
-    arrayUsers.push(new User(phonenumber));
-    console.log("Object User is created with a phone number :" ,phonenumber,"\n");
-  }
+  //get the user index
   userindex = mylib.GetUserIndex(arrayUsers,phonenumber);
   console.log("The user index for the number :", phonenumber , "is = ", userindex , "\n");
 
-  console.log("there does not exist a first name for :" , arrayUsers[userindex], "\n");
-  client.sendMessage(phonenumber, "your number is "+ phonenumber +" \nPlease send your firstname.");
+  arrayUsers[userindex].option = "/sub";
 
-  fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
+  client.sendMessage(phonenumber, "your number is "+ phonenumber +" \nPlease send your firstname lastname age.\n Ex : Elie-joe Hajj 19");
 
   console.log("Handle subscription function is finished \n");
   return;
 
 }
-function CheckUsersInfo(userindex,arrayUsers,client,phonenumber,msg){
 
- 
-    if(!arrayUsers[userindex].firstname ){
-      if(mylib.checkIfname(msg.body)){
-        arrayUsers[userindex].firstname = msg.body;
-        fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
-        console.log("we got our first name \n :" ,msg.body);
-        console.log("there does not exist a last name for :" , arrayUsers[userindex], "\n");
-        client.sendMessage(phonenumber, "your number is "+ phonenumber +" \nPlease send your lastname.");
-        
-      }
-      else{
-        client.sendMessage(phonenumber, "your number is "+ phonenumber +" \nPlease send your fisrtname. \n there cannot be numbers or symboles in it");
-        return;
-      }
-    }
-    else if(!arrayUsers[userindex].lastname){
-      if(mylib.checkIfname(msg.body)){
-        arrayUsers[userindex].lastname = msg.body;
-        fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
-        console.log("we got our last name \n :" ,msg.body);
-        client.sendMessage(phonenumber, "your number is "+ phonenumber +" \nPlease send your age.");
-        
-      }
-      else{
-        client.sendMessage(phonenumber, "your number is "+ phonenumber +" \nPlease send your lastname. \n there cannot be numbers or symboles in it");
-        return;
-      }
-    }
-    else if(!arrayUsers[userindex].age){
-      if(mylib.checkIfage(msg.body)){
-        arrayUsers[userindex].age = msg.body;
-        fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
-        console.log("we got our last name \n :" ,msg.body);
-        client.sendMessage(phonenumber, "your number is "+ phonenumber +" \nDo you confirm subscription ? (Y/N)" + JSON.stringify(arrayUsers[userindex],null,2));
-      }
-      else{
-        client.sendMessage(phonenumber, "your number is "+ phonenumber +" \nPlease send your age. \n it needs to be an integer between 12 and 100");
-        return;
-      }
-    }
-    else if(!arrayUsers[userindex].isSubscribed && msg.body.toLowerCase() == "y"){
-      arrayUsers[userindex].isSubscribed = true;
-      fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
-      client.sendMessage(phonenumber, "Subscription with phone : " + arrayUsers[userindex].phonenumber+ "\n first name : " + arrayUsers[userindex].firstname + "\n lastname : " + arrayUsers[userindex].lastname + "\n age : " + arrayUsers[userindex].age +"\n Completed !");
-      console.log("all the requirement are met so Is subscribed is = true \n");
-      arrayUsers[userindex].option = ""
-    }
-    else if(msg.body.toLowerCase() == "n"){
-      arrayUsers.splice(userindex,1);
-      fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
-      client.sendMessage(phonenumber, "your number is "+ phonenumber +" \n Subscription Canceled.");
-      console.log("Canceled subcription \n")
-      arrayUsers[userindex].option = ""
-    }
+function CheckUsersInfo(arrayUsers,userindex,phonenumber,userMessage){
 
-  
+  if(!arrayUsers[userindex].firstname && !arrayUsers[userindex].lastname && !arrayUsers[userindex].age){
+    userMessage = ArraySplitUserInput(userMessage);
+    if(userMessage.length > 3){client.sendMessage(phonenumber,"argument bigger than requested"); return;}
 
+    let firstname = userMessage[0];
+    let lastname = userMessage[1];
+    let age = userMessage[2];
+
+    console.log("array of usermessage = ", firstname , lastname , age);
+
+    let firstnameerror;
+    let lastnameerror;
+    let ageerror;
+
+    let errorSendMessage;
+
+    if(!mylib.checkIfname(firstname)) {firstnameerror = "No symbole or number in firstname\n"};
+    if(!mylib.checkIfname(lastname)){lastnameerror = "No symbole or number in lastname\n"};
+    if(!mylib.checkIfage(age)){ageerror = "age must be between 12 and 100\n"};
+    errorSendMessage = firstnameerror + lastnameerror + ageerror;
+    if(errorSendMessage){client.sendMessage(phonenumber,errorSendMessage); return;};
+
+    arrayUsers[userindex].firstname = firstname;
+    arrayUsers[userindex].lastname = lastname;
+    arrayUsers[userindex].age = age;
+
+    client.sendMessage(phonenumber,
+    `your phone number is ${phonenumber} Do you confirm subscription ? (Y/N) 
+    phone : ${arrayUsers[userindex].phonenumber} 
+    firstname : ${arrayUsers[userindex].firstname}
+    lastname : ${arrayUsers[userindex].lastname}
+    age : ${arrayUsers[userindex].age} `
+    );
+  }
+  else if(!arrayUsers[userindex].isSubscribed && userMessage.toLowerCase() == "y"){
+    arrayUsers[userindex].isSubscribed = true;
+    arrayUsers[userindex].option = "";
+    fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
+    
+    client.sendMessage(phonenumber, `Subscription Completed`);
+    console.log("all the requirement are met so Is subscribed is = true \n");
+
+    return
+  }
+  else if(userMessage.toLowerCase() == "n"){
+    arrayUsers.splice(userindex,1);
+    arrayUsers[userindex].option = "";
+    fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
+
+    client.sendMessage(phonenumber, "Subscription Canceled.");
+    console.log("Canceled subcription \n");
+   
+    return
+  }
+
+  console.log("Check user info finished \n")
   return;
 
 }
 
 //For Subscribed Users
-function handleUserOption(client,msg,arrayUsers,userindex){
-  if (msg.body.toLowerCase() == '/help') { arrayUsers[userindex].option = "/help"; return; }
+function handleUserOption(arrayUsers,userindex,userMessage){
+  if (userMessage.toLowerCase() == '/quit') { arrayUsers[userindex].option = ""; return; }
+  if (userMessage.toLowerCase() == '/help') { arrayUsers[userindex].option = "/help"; return; }
 
-  if (msg.body.toLowerCase() == '/lirarate') { arrayUsers[userindex].option = "/lirarate"; return; }
+  if (userMessage.toLowerCase() == '/lirarate') { arrayUsers[userindex].option = "/lirarate"; return; }
 
-  if (msg.body.toLowerCase() == '/countrytimezone' ) {arrayUsers[userindex].option = "/countrytimezone"; return;}
+  if (userMessage.toLowerCase() == '/countrytimezone' ) {arrayUsers[userindex].option = "/countrytimezone"; return;}
 
-  if (msg.body.toLowerCase() == '/mynews') { arrayUsers[userindex].option = "/mynews"; return; }
+  if (userMessage.toLowerCase() == '/mynews') { arrayUsers[userindex].option = "/mynews"; return; }
 
-  if (msg.body.toLowerCase() == '/addnews') { arrayUsers[userindex].option = "/addnews"; return; }
-  if (msg.body.toLowerCase() == '/removenews') { arrayUsers[userindex].option = "/removenews"; return; }
+  if (userMessage.toLowerCase() == '/addnews') { arrayUsers[userindex].option = "/addnews"; return; }
+  if (userMessage.toLowerCase() == '/removenews') { arrayUsers[userindex].option = "/removenews"; return; }
+
 
   return;
 }
-function CommandsForSubscribedUsers(msg,client,arrayUsers,userindex){
+function CommandsForSubscribedUsers(arrayUsers,userindex,phonenumber,userMessage){
 
 
-  if (arrayUsers[userindex].option == "/help") { handleHelp(client, msg ,arrayUsers,userindex); return; }
+  if (arrayUsers[userindex].option == "/help") { handleHelp(arrayUsers,userindex,phonenumber); return; }
 
-  if (arrayUsers[userindex].option == "/lirarate") { handleLiraRate(client, msg ,arrayUsers,userindex); return; }
+  if (arrayUsers[userindex].option == "/lirarate") { handleLiraRate(arrayUsers,userindex,phonenumber); return; }
 
-  if (arrayUsers[userindex].option == "/countrytimezone" ) {handleCountryTime(client,msg,arrayUsers,userindex); return;}
+  if (arrayUsers[userindex].option == "/countrytimezone" ) {handleCountryTime(phonenumber,userMessage); return;}
 
-  if (arrayUsers[userindex].option == "/mynews") { handleMyNews(client, msg ,arrayUsers,userindex); return; }
+  if (arrayUsers[userindex].option == "/mynews") { handleMyNews(arrayUsers,userindex,phonenumber); return; }
 
-  if (arrayUsers[userindex].option == "/addnews") { handleAddnews(client, msg ,arrayUsers,userindex); return; }
-  if (arrayUsers[userindex].option == "/removenews") { handleRemovenews(client, msg ,arrayUsers,userindex); return; }
+  if (arrayUsers[userindex].option == "/addnews") { handleAddnews(arrayUsers,userindex,phonenumber,userMessage); return; }
+  if (arrayUsers[userindex].option == "/removenews") { handleRemovenews(arrayUsers,userindex,phonenumber,userMessage); return; }
 
   return;
 }
-function handleHelp(client, msg ,arrayUsers,userindex) {
-  var MsgCommandArray = ["/LiraRate \n", "/CountryTimeZone \n", "/AddNews \n", "/MyNews \n"];
+function handleHelp(arrayUsers,userindex,phonenumber) {
+  var MsgCommandArray = ["/Cancel :to quit any operation","/LiraRate \n", "/CountryTimeZone \n", "/AddNews \n", "/MyNews \n"];
   console.log("Help command initiated \n");
-  client.sendMessage(msg.from, "Commands : \n" + MsgCommandArray.toString());
+
+  client.sendMessage(phonenumber, "Commands : \n" + MsgCommandArray.toString());
   arrayUsers[userindex].option = "";
   return;
 }
-function handleLiraRate(client, msg ,arrayUsers,userindex) {
+function handleLiraRate(arrayUsers,userindex,phonenumber) {
   console.log("LiraRate command initiated \n");
-  client.sendMessage(msg.from, 
-`Buy 1 USD for ${lira.buy} LBP
-Sell 1 USD for ${lira.sell} LBP`)
 
-arrayUsers[userindex].option = "";
+  client.sendMessage(phonenumber, 
+  `Buy 1 USD for ${lira.buy} LBP
+  Sell 1 USD for ${lira.sell} LBP`
+  );
 
+  arrayUsers[userindex].option = "";
   return;
 }
-async function handleCountryTime(client,msg,arrayUsers, userindex){
+async function handleCountryTime(phonenumber,userMessage){
   
   
-  if(msg.body.toLowerCase() != "/countrytimezone"){
-    if(await CheckForCountry(msg.body)){
-    await mylib.GetTimeZone(Countrytime,msg.body);
-    client.sendMessage(msg.from, "Time in " + Countrytime.timezone + " : " +Countrytime.hour + ":" +Countrytime.minute + ":" + Countrytime.seconds);
-    arrayUsers[userindex].option = "";
+  if(userMessage.toLowerCase() != "/countrytimezone"){
+    if(await mylib.axiosTimeApi(userMessage)){
+      await mylib.GetTimeZone(Countrytime,userMessage);
+      client.sendMessage(phonenumber, "Time in " + Countrytime.timezone + " : " +Countrytime.hour + ":" +Countrytime.minute + ":" + Countrytime.seconds);
     }
     else{
-      client.sendMessage(msg.from, "Input inccorrect \n command example: Europe/London");
+      client.sendMessage(phonenumber, "Input inccorrect \n command example: Europe/London");
     }
   }
   else{
-    client.sendMessage(msg.from, "Which capital do you need? \n command example: Europe/London");
+    client.sendMessage(phonenumber, "Which capital do you need? \n command example: Europe/London");
   }
   
   return
 }
-async function CheckForCountry(location){
 
-  return await mylib.axiosTimeApi(location) //return false if there is an error in location
-}
-
-async function handleMyNews(client, msg ,arrayUsers,userindex){
+async function handleMyNews(arrayUsers,userindex,phonenumber){
   try{
     var randomSubject = arrayUsers[userindex].news[parseInt( Math.random() * (arrayUsers[userindex].news.length ) )] //maths random give value between 0 and 1
     console.log("random subject : ", randomSubject);
@@ -265,119 +263,90 @@ async function handleMyNews(client, msg ,arrayUsers,userindex){
     var randomWord = allnewsOptions[randomSubject][parseInt( Math.random() * (allnewsOptions[randomSubject].length ) )];
     console.log("random word : ", randomWord);
   
-    await mylib.GetWorldNews(ourresponse,ourimage,randomWord);
+    await mylib.GetWorldNews(newsResponse,newsImage,randomWord);
     try{
-      const media = await MessageMedia.fromUrl(ourimage.image);
-      await client.sendMessage(msg.from,media);
+      const media = await MessageMedia.fromUrl(newsImage.image);
+      await client.sendMessage(phonenumber,media);
     }catch{
       console.log("could not download image");
     }
-    await client.sendMessage(msg.from,JSON.stringify(ourresponse.title,null,2) +"\n\n" + JSON.stringify(ourresponse.text,null,2) +"\n\n"  +JSON.stringify(ourresponse.url,null,2) +"\n\n");
+    await client.sendMessage(phonenumber,JSON.stringify(newsResponse.title,null,2) +"\n\n" + JSON.stringify(newsResponse.text,null,2) +"\n\n"  +JSON.stringify(newsResponse.url,null,2) +"\n\n");
     arrayUsers[userindex].option = "";
   }
   catch
   {
-    client.sendMessage(msg.from,"You have no news.")
+    client.sendMessage(phonenumber,"You have no news.")
   }
 }
 
-function handleAddnews(client, msg ,arrayUsers,userindex){
+function handleAddnews(arrayUsers,userindex,phonenumber,userMessage){
 
-console.log("Handeling add news initiated");
+  console.log("Handeling add news initiated");
 
-var msgArray = GetUserInputNews(msg.body);
-for(var i = 0 ; i < msgArray.length ; i++){
-  
-  if(msgArray[i].toLowerCase() != "/addnews"){
-    
-    if(msgArray[i].toLowerCase() == "cancel"){
-      console.log("option = empty ");
-      arrayUsers[userindex].option = "";
-      break;
-    }
-    else if(Object.keys(allnewsOptions).includes(msgArray[i].toLowerCase()) && !arrayUsers[userindex].news.includes(msgArray[i].toLowerCase()) ){
-      arrayUsers[userindex].news.push(msgArray[i].toLowerCase());
-      fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
-      
-    }
-    else{
-      client.sendMessage(msg.from,"no available news option for this subject");
-      break;
-    }
-  }  
-  else{
-    client.sendMessage(msg.from,"Available news option : " + JSON.stringify(Object.keys(allnewsOptions),null,2));
-    client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news) + "\n Write the subjects you want \n ex : Science politcs japan");
-  }
-}
 
-client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
+  if(userMessage.toLowerCase() != "/addnews"){
 
-}
+    let invalidOptions = [];
+    userMessage = ArraySplitUserInput(userMessage);
 
-function handleRemovenews(client, msg ,arrayUsers,userindex){
+    for(let i = 0 ; i < userMessage.length ; i++){
 
-  console.log("Handeling remove news initiated");
-  
-  var msgArray = GetUserInputNews(msg.body);
-  for(var i = 0 ; i < msgArray.length ; i++){
-    
-    if(msgArray[i].toLowerCase() != "/removenews"){
-      
-      if(msgArray[i].toLowerCase() == "cancel"){
-        console.log("option = empty ");
-        arrayUsers[userindex].option = "";
-        break;
-      }
-      else if(arrayUsers[userindex].news.includes(msgArray[i].toLowerCase()) ){
-        arrayUsers[userindex].news.splice(arrayUsers[userindex].news.indexOf(msgArray[i].toLowerCase()),1); //indexof give index of where the msg exist in the array
-        fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
-        
+      if(Object.keys(allnewsOptions).includes(userMessage[i].toLowerCase()) && !arrayUsers[userindex].news.includes(userMessage[i].toLowerCase()) ){
+        arrayUsers[userindex].news.push(userMessage[i].toLowerCase());
       }
       else{
-        client.sendMessage(msg.from,"no available news option for this subject");
-        break;
+        console.log(userMessage[i], " could not be added");
+        invalidOptions.push(userMessage[i]);
       }
-    }  
-    else{
-      client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news) + "\n Write the subjects you want \n ex : Science politcs japan");
+      console.log(i);
     }
+
+    console.log("invalid option : ", invalidOptions);
+
+    fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
+    if(invalidOptions[0] != undefined){client.sendMessage(phonenumber,invalidOptions.toString() +  "could not be added")};
+    client.sendMessage(phonenumber,"your news : " + JSON.stringify(arrayUsers[userindex].news));
+  }
+  else{
+    client.sendMessage(phonenumber,
+    `Available news option : ${JSON.stringify(Object.keys(allnewsOptions),null,2)}
+    your news : ${JSON.stringify(arrayUsers[userindex].news)} 
+    Write the subjects you want to add, ex : Science politcs japan`
+    );
   }
   
-  client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
+}
+
+function handleRemovenews(arrayUsers,userindex,phonenumber,userMessage){
+
+  console.log("Handeling remove news initiated");
+
+
+  if(userMessage.toLowerCase() != "/removenews"){
+
+    userMessage = ArraySplitUserInput(userMessage);
+
+    for(var i = 0 ; i < userMessage.length ; i++){
+      if(arrayUsers[userindex].news.includes(userMessage[i].toLowerCase())){
+        arrayUsers[userindex].news.splice(arrayUsers[userindex].news.indexOf(userMessage[i].toLowerCase()),1); //indexof give index of where the msg exist in the array
+      }
+    }
+
+    fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
+    client.sendMessage(phonenumber,"your news : " + JSON.stringify(arrayUsers[userindex].news));
+  }
+  else{
+    client.sendMessage(phonenumber,
+    `your news : ${JSON.stringify(arrayUsers[userindex].news)}
+    Write the subjects you want to remove, ex : Science politcs japan`
+    );
+  }
   
 }
-  
 
-// function handleRemovenews(client, msg ,arrayUsers,userindex){
-
-//   console.log("Handeling remove news initiated");
-  
-//     if(msg.body.toLowerCase() != "/removenews"){
-//       if(msg.body.toLowerCase() == "cancel"){
-//         console.log("option = empty ");
-//         arrayUsers[userindex].option = "";
-//         return
-//       }
-//       else if(arrayUsers[userindex].news.includes(msg.body.toLowerCase()) ){
-        
-//         arrayUsers[userindex].news.splice(arrayUsers[userindex].news.indexOf(msg.body.toLowerCase()),1); //indexof give index of where the msg exist in the array
-//         fs.writeFileSync('Users.txt',JSON.stringify(arrayUsers,null,2));
-//         client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
-//       }
-//       else{
-//         client.sendMessage(msg.from,"no available news option for this subject");
-//       }
-//     }  
-//     else{
-//       client.sendMessage(msg.from,"your news : " + JSON.stringify(arrayUsers[userindex].news));
-//     }
-  
-// }
-
-function GetUserInputNews(usermsg){
-  usermsg = usermsg.split(" ");
-  return usermsg;
+function ArraySplitUserInput(userMessage){
+  userMessage = userMessage.split(" ");
+  return userMessage;
 }
 
 client.initialize();
