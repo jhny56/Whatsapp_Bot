@@ -7,14 +7,10 @@ const qrcode = require("qrcode-terminal");
 const {
   Client,
   // LocalAuth,
-  // ChatTypes,
   MessageMedia,
 } = require("whatsapp-web.js");
-// const { captureRejectionSymbol } = require("node-telegram-bot-api");
+
 const client = new Client();
-//   {
-//   authStrategy: new LocalAuth(),
-// }
 
 //AXIOS LIBRARIES
 const axios = require("axios").default;
@@ -75,7 +71,7 @@ var allnewsOptions = {
     "oil",
     "natural%20gaz",
   ],
-  japan: ["japan", "anime", "japanese", "tokyo", "pokemon"],
+  japan: ["japan", "anime", "japanese", "tokyo"],
 };
 
 //READY WHATSAPP CLIENT
@@ -90,7 +86,7 @@ client.on("ready", () => {
 //LISTENER TO NEW MESSAGES
 client.on("message", OnNewMessage);
 
-//--------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------------------
 
 // ON NEW MESSAGE
 async function OnNewMessage(msg) {
@@ -107,13 +103,12 @@ async function OnNewMessage(msg) {
   if (!(await mytables.userExist(phonenumber))) {
     if (userMessage.toLowerCase() == "/sub") {
       await handleSubscription(phonenumber);
-      return; //Add phone number to user arrays
+      return;
     } else {
       client.sendMessage(phonenumber, "You need to subscribe first, send /sub");
     }
   } else {
     if ((await mytables.getUserInfo(phonenumber, "option")) == "/sub") {
-      console.log("there exist a user object with this phone number");
       //check the user info and ask for missing ones
       CheckUsersInfo(phonenumber, userMessage);
     }
