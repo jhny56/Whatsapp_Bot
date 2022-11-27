@@ -10,7 +10,7 @@ module.exports = {
 
 
 const Sequelize = require('sequelize');
-const sequelize = new Sequelize('whatsappbot_db','root','yaa5oucharmoutaA',{
+const sequelize = new Sequelize('whatsappbot_db','root','Password',{
     dialect : "mysql", //database engine
     define: { //this define every table we create
         freezeTableName : true, //this makes a table with a table name exactly like the one we specified (users)
