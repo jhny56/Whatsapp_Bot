@@ -1,21 +1,20 @@
 // MY LIBRARIES
 const mylib = require("./lib");
+const mytables = require("./sequelize");
 
 //WHATSAPP WEB LIBRARIES
 const qrcode = require("qrcode-terminal");
 const {
   Client,
-  LocalAuth,
-  ChatTypes,
+  // LocalAuth,
+  // ChatTypes,
   MessageMedia,
 } = require("whatsapp-web.js");
-const { captureRejectionSymbol } = require("node-telegram-bot-api");
-const client = new Client({
-  authStrategy: new LocalAuth(),
-});
-
-//FILE MANAGER LIBRARIES
-const fs = require("fs");
+// const { captureRejectionSymbol } = require("node-telegram-bot-api");
+const client = new Client();
+//   {
+//   authStrategy: new LocalAuth(),
+// }
 
 //AXIOS LIBRARIES
 const axios = require("axios").default;
@@ -48,18 +47,6 @@ const Countrytime = {
   milliseconds: 0,
   timezone: "",
 };
-
-//OBJECTS FOR USERS
-var arrayUsers = JSON.parse(fs.readFileSync("Users.txt").toString()); //we should put [] in Users.txt if its empty
-function User(phonenumber, firstname, lastname, age) {
-  this.phonenumber = phonenumber;
-  this.firstname = firstname;
-  this.lastname = lastname;
-  this.age = age;
-  this.isSubscribed = false;
-  this.news = [];
-  this.option = "";
-}
 
 //OBJECTS FOR WORLD NEWS
 var newsResponse = { title: "", text: "", url: "" };
@@ -95,6 +82,7 @@ var allnewsOptions = {
 client.on("qr", (qr) => {
   qrcode.generate(qr, { small: true });
 });
+
 client.on("ready", () => {
   console.log("Client is ready!");
 });
@@ -102,11 +90,13 @@ client.on("ready", () => {
 //LISTENER TO NEW MESSAGES
 client.on("message", OnNewMessage);
 
+//--------------------------------------------------------------------------------------------
+
 // ON NEW MESSAGE
 async function OnNewMessage(msg) {
   //get phone number and message
   var phonenumber = msg.from;
-  var userMessage = msg.body;
+  var userMessage = msg.body.toLowerCase();
 
   console.log(
     "you got a new msg from " + phonenumber + " : ",
@@ -114,64 +104,43 @@ async function OnNewMessage(msg) {
     "\n"
   );
 
-  //get user index in array
-  var userindex = mylib.GetUserIndex(arrayUsers, phonenumber);
-  console.log(
-    "The user index for the number :",
-    phonenumber,
-    "is = ",
-    userindex,
-    "\n"
-  );
-
-  //handle subscription if user not registered
-  if (userMessage.toLowerCase() == "/sub") {
-    if (userindex == undefined) {
-      handleSubscription(arrayUsers, userindex, phonenumber);
+  if (!(await mytables.userExist(phonenumber))) {
+    if (userMessage.toLowerCase() == "/sub") {
+      await handleSubscription(phonenumber);
       return; //Add phone number to user arrays
     } else {
+      client.sendMessage(phonenumber, "You need to subscribe first, send /sub");
+    }
+  } else {
+    if ((await mytables.getUserInfo(phonenumber, "option")) == "/sub") {
+      console.log("there exist a user object with this phone number");
+      //check the user info and ask for missing ones
+      CheckUsersInfo(phonenumber, userMessage);
+    }
+
+    if (
+      userMessage.toLowerCase() == "/sub" &&
+      (await mytables.getUserInfo(phonenumber, "subscribed"))
+    ) {
       client.sendMessage(phonenumber, "Already subscribed on " + phonenumber);
+      return;
     }
   }
 
-  if (arrayUsers[userindex].option == "/sub") {
-    console.log("there exist a user object with this phone number");
-    //check the user info and ask for missing ones
-    CheckUsersInfo(arrayUsers, userindex, phonenumber, userMessage);
-  }
-
   //handle the commands of subscribed users
-  if (arrayUsers[userindex].isSubscribed == true) {
+  if ((await mytables.getUserInfo(phonenumber, "subscribed")) == true) {
     console.log("handeling subscribed users");
-    handleUserOption(arrayUsers, userindex, userMessage);
-    CommandsForSubscribedUsers(arrayUsers, userindex, phonenumber, userMessage);
+    await handleUserOption(phonenumber, userMessage);
+    await CommandsForSubscribedUsers(phonenumber, userMessage);
   }
 }
 
 // For Subscription
-function handleSubscription(arrayUsers, userindex, phonenumber) {
-  console.log("the phone number does not exist in the array \n");
+async function handleSubscription(phonenumber) {
+  console.log("the phone number does not exist in the table \n");
 
-  //added the new user
-  arrayUsers.push(new User(phonenumber));
-  fs.writeFileSync("Users.txt", JSON.stringify(arrayUsers, null, 2));
-  console.log(
-    "Object User is created with a phone number :",
-    phonenumber,
-    "\n"
-  );
-
-  //get the user index
-  userindex = mylib.GetUserIndex(arrayUsers, phonenumber);
-  console.log(
-    "The user index for the number :",
-    phonenumber,
-    "is = ",
-    userindex,
-    "\n"
-  );
-
-  arrayUsers[userindex].option = "/sub";
+  await mytables.createUser(phonenumber);
+  await mytables.addUserInfo(phonenumber, "option", "/sub");
 
   client.sendMessage(
     phonenumber,
@@ -184,14 +153,10 @@ function handleSubscription(arrayUsers, userindex, phonenumber) {
   return;
 }
 
-function CheckUsersInfo(arrayUsers, userindex, phonenumber, userMessage) {
-  if (
-    !arrayUsers[userindex].firstname &&
-    !arrayUsers[userindex].lastname &&
-    !arrayUsers[userindex].age
-  ) {
+async function CheckUsersInfo(phonenumber, userMessage) {
+  if (!(await CurrentUserInfoChecked(phonenumber))) {
     userMessage = ArraySplitUserInput(userMessage);
-    if (userMessage.length > 3) {
+    if (userMessage.length != 3) {
       client.sendMessage(phonenumber, "argument bigger than requested");
       return;
     }
@@ -223,34 +188,32 @@ function CheckUsersInfo(arrayUsers, userindex, phonenumber, userMessage) {
       return;
     }
 
-    arrayUsers[userindex].firstname = firstname;
-    arrayUsers[userindex].lastname = lastname;
-    arrayUsers[userindex].age = age;
+    await mytables.addUserInfo(phonenumber, "firstname", firstname);
+    await mytables.addUserInfo(phonenumber, "lastname", lastname);
+    await mytables.addUserInfo(phonenumber, "age", age);
 
     client.sendMessage(
       phonenumber,
       `your phone number is ${phonenumber} Do you confirm subscription ? (Y/N) 
-    phone : ${arrayUsers[userindex].phonenumber} 
-    firstname : ${arrayUsers[userindex].firstname}
-    lastname : ${arrayUsers[userindex].lastname}
-    age : ${arrayUsers[userindex].age} `
+      phone : ${phonenumber} 
+      firstname : ${firstname}
+      lastname : ${lastname}
+      age : ${age} `
     );
+    return;
   } else if (
-    !arrayUsers[userindex].isSubscribed &&
+    !(await mytables.getUserInfo(phonenumber, "subscribed")) &&
     userMessage.toLowerCase() == "y"
   ) {
-    arrayUsers[userindex].isSubscribed = true;
-    arrayUsers[userindex].option = "";
-    fs.writeFileSync("Users.txt", JSON.stringify(arrayUsers, null, 2));
+    await mytables.addUserInfo(phonenumber, "subscribed", true);
+    await mytables.addUserInfo(phonenumber, "option", "");
 
     client.sendMessage(phonenumber, `Subscription Completed`);
     console.log("all the requirement are met so Is subscribed is = true \n");
 
     return;
   } else if (userMessage.toLowerCase() == "n") {
-    arrayUsers.splice(userindex, 1);
-    arrayUsers[userindex].option = "";
-    fs.writeFileSync("Users.txt", JSON.stringify(arrayUsers, null, 2));
+    await mytables.destroyUser(phonenumber);
 
     client.sendMessage(phonenumber, "Subscription Canceled.");
     console.log("Canceled subcription \n");
@@ -262,81 +225,89 @@ function CheckUsersInfo(arrayUsers, userindex, phonenumber, userMessage) {
   return;
 }
 
+async function CurrentUserInfoChecked(phonenumber) {
+  let firstname = await mytables.getUserInfo(phonenumber, "firstname");
+  let lastname = await mytables.getUserInfo(phonenumber, "lastname");
+  let age = await mytables.getUserInfo(phonenumber, "age");
+  if (age && lastname && firstname) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 //For Subscribed Users
-function handleUserOption(arrayUsers, userindex, userMessage) {
+async function handleUserOption(phonenumber, userMessage) {
   if (userMessage.toLowerCase() == "/quit") {
-    arrayUsers[userindex].option = "";
+    await mytables.addUserInfo(phonenumber, "option", "");
     return;
   }
   if (userMessage.toLowerCase() == "/help") {
-    arrayUsers[userindex].option = "/help";
+    await mytables.addUserInfo(phonenumber, "option", "/help");
     return;
   }
 
   if (userMessage.toLowerCase() == "/lirarate") {
-    arrayUsers[userindex].option = "/lirarate";
+    await mytables.addUserInfo(phonenumber, "option", "/lirarate");
     return;
   }
 
   if (userMessage.toLowerCase() == "/countrytimezone") {
-    arrayUsers[userindex].option = "/countrytimezone";
+    await mytables.addUserInfo(phonenumber, "option", "/countrytimezone");
     return;
   }
 
   if (userMessage.toLowerCase() == "/mynews") {
-    arrayUsers[userindex].option = "/mynews";
+    await mytables.addUserInfo(phonenumber, "option", "/mynews");
     return;
   }
 
   if (userMessage.toLowerCase() == "/addnews") {
-    arrayUsers[userindex].option = "/addnews";
+    await mytables.addUserInfo(phonenumber, "option", "/addnews");
     return;
   }
   if (userMessage.toLowerCase() == "/removenews") {
-    arrayUsers[userindex].option = "/removenews";
+    await mytables.addUserInfo(phonenumber, "option", "/removenews");
     return;
   }
 
   return;
 }
-function CommandsForSubscribedUsers(
-  arrayUsers,
-  userindex,
-  phonenumber,
-  userMessage
-) {
-  if (arrayUsers[userindex].option == "/help") {
-    handleHelp(arrayUsers, userindex, phonenumber);
+async function CommandsForSubscribedUsers(phonenumber, userMessage) {
+  let currentOption = await mytables.getUserInfo(phonenumber, "option");
+
+  if (currentOption == "/help") {
+    handleHelp(phonenumber);
     return;
   }
 
-  if (arrayUsers[userindex].option == "/lirarate") {
-    handleLiraRate(arrayUsers, userindex, phonenumber);
+  if (currentOption == "/lirarate") {
+    handleLiraRate(phonenumber);
     return;
   }
 
-  if (arrayUsers[userindex].option == "/countrytimezone") {
+  if (currentOption == "/countrytimezone") {
     handleCountryTime(phonenumber, userMessage);
     return;
   }
 
-  if (arrayUsers[userindex].option == "/mynews") {
-    handleMyNews(arrayUsers, userindex, phonenumber);
+  if (currentOption == "/mynews") {
+    handleMyNews(phonenumber);
     return;
   }
 
-  if (arrayUsers[userindex].option == "/addnews") {
-    handleAddnews(arrayUsers, userindex, phonenumber, userMessage);
+  if (currentOption == "/addnews") {
+    handleAddnews(phonenumber, userMessage);
     return;
   }
-  if (arrayUsers[userindex].option == "/removenews") {
-    handleRemovenews(arrayUsers, userindex, phonenumber, userMessage);
+  if (currentOption == "/removenews") {
+    handleRemovenews(phonenumber, userMessage);
     return;
   }
 
   return;
 }
-function handleHelp(arrayUsers, userindex, phonenumber) {
+async function handleHelp(phonenumber) {
   var MsgCommandArray = [
     "/Cancel :to quit any operation",
     "/LiraRate \n",
@@ -347,10 +318,10 @@ function handleHelp(arrayUsers, userindex, phonenumber) {
   console.log("Help command initiated \n");
 
   client.sendMessage(phonenumber, "Commands : \n" + MsgCommandArray.toString());
-  arrayUsers[userindex].option = "";
+  await mytables.addUserInfo(phonenumber, "option", "");
   return;
 }
-function handleLiraRate(arrayUsers, userindex, phonenumber) {
+async function handleLiraRate(phonenumber) {
   console.log("LiraRate command initiated \n");
 
   client.sendMessage(
@@ -359,7 +330,7 @@ function handleLiraRate(arrayUsers, userindex, phonenumber) {
   Sell 1 USD for ${lira.sell} LBP`
   );
 
-  arrayUsers[userindex].option = "";
+  await mytables.addUserInfo(phonenumber, "option", "");
   return;
 }
 async function handleCountryTime(phonenumber, userMessage) {
@@ -393,12 +364,11 @@ async function handleCountryTime(phonenumber, userMessage) {
   return;
 }
 
-async function handleMyNews(arrayUsers, userindex, phonenumber) {
+async function handleMyNews(phonenumber) {
+  let currentNews = await mytables.getUserInfo(phonenumber, "news");
   try {
     var randomSubject =
-      arrayUsers[userindex].news[
-        parseInt(Math.random() * arrayUsers[userindex].news.length)
-      ]; //maths random give value between 0 and 1
+      currentNews[parseInt(Math.random() * currentNews.length)]; //maths random give value between 0 and 1
     console.log("random subject : ", randomSubject);
 
     var randomWord =
@@ -423,14 +393,16 @@ async function handleMyNews(arrayUsers, userindex, phonenumber) {
         JSON.stringify(newsResponse.url, null, 2) +
         "\n\n"
     );
-    arrayUsers[userindex].option = "";
+    await mytables.addUserInfo(phonenumber, "option", "");
   } catch {
     client.sendMessage(phonenumber, "You have no news.");
   }
 }
 
-function handleAddnews(arrayUsers, userindex, phonenumber, userMessage) {
+async function handleAddnews(phonenumber, userMessage) {
   console.log("Handeling add news initiated");
+
+  let currentNews = await mytables.getUserInfo(phonenumber, "news");
 
   if (userMessage.toLowerCase() != "/addnews") {
     let invalidOptions = [];
@@ -439,9 +411,9 @@ function handleAddnews(arrayUsers, userindex, phonenumber, userMessage) {
     for (let i = 0; i < userMessage.length; i++) {
       if (
         Object.keys(allnewsOptions).includes(userMessage[i].toLowerCase()) &&
-        !arrayUsers[userindex].news.includes(userMessage[i].toLowerCase())
+        !currentNews.includes(userMessage[i].toLowerCase())
       ) {
-        arrayUsers[userindex].news.push(userMessage[i].toLowerCase());
+        currentNews.push(userMessage[i].toLowerCase());
       } else {
         invalidOptions.push(userMessage[i]);
       }
@@ -450,7 +422,8 @@ function handleAddnews(arrayUsers, userindex, phonenumber, userMessage) {
 
     console.log("invalid option : ", invalidOptions);
 
-    fs.writeFileSync("Users.txt", JSON.stringify(arrayUsers, null, 2));
+    await mytables.addUserInfo(phonenumber, "news", currentNews);
+
     if (invalidOptions[0] != undefined) {
       client.sendMessage(
         phonenumber,
@@ -459,7 +432,7 @@ function handleAddnews(arrayUsers, userindex, phonenumber, userMessage) {
     }
     client.sendMessage(
       phonenumber,
-      "your news : " + JSON.stringify(arrayUsers[userindex].news)
+      "your news : " + JSON.stringify(currentNews)
     );
   } else {
     client.sendMessage(
@@ -469,36 +442,38 @@ function handleAddnews(arrayUsers, userindex, phonenumber, userMessage) {
         null,
         2
       )}
-    your news : ${JSON.stringify(arrayUsers[userindex].news)} 
+    your news : ${JSON.stringify(currentNews)} 
     Write the subjects you want to add, ex : Science politcs japan`
     );
   }
 }
 
-function handleRemovenews(arrayUsers, userindex, phonenumber, userMessage) {
+async function handleRemovenews(phonenumber, userMessage) {
   console.log("Handeling remove news initiated");
+
+  let currentNews = await mytables.getUserInfo(phonenumber, "news");
 
   if (userMessage.toLowerCase() != "/removenews") {
     userMessage = ArraySplitUserInput(userMessage);
 
     for (var i = 0; i < userMessage.length; i++) {
-      if (arrayUsers[userindex].news.includes(userMessage[i].toLowerCase())) {
-        arrayUsers[userindex].news.splice(
-          arrayUsers[userindex].news.indexOf(userMessage[i].toLowerCase()),
+      if (currentNews.includes(userMessage[i].toLowerCase())) {
+        currentNews.splice(
+          currentNews.indexOf(userMessage[i].toLowerCase()),
           1
         ); //indexof give index of where the msg exist in the array
       }
     }
 
-    fs.writeFileSync("Users.txt", JSON.stringify(arrayUsers, null, 2));
+    await mytables.addUserInfo(phonenumber, "news", currentNews);
     client.sendMessage(
       phonenumber,
-      "your news : " + JSON.stringify(arrayUsers[userindex].news)
+      "your news : " + JSON.stringify(currentNews)
     );
   } else {
     client.sendMessage(
       phonenumber,
-      `your news : ${JSON.stringify(arrayUsers[userindex].news)}
+      `your news : ${JSON.stringify(currentNews)}
     Write the subjects you want to remove, ex : Science politcs japan`
     );
   }

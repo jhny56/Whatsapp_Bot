@@ -2,13 +2,15 @@
   "name": "part-1",
   "version": "1.0.0",
   "description": "",
-  "main": "main.js",
+  "main": "main - Copy.js",
   "dependencies": {
     "axios": "^0.27.2",
     "fetch": "^1.1.0",
+    "mysql2": "^2.3.3",
     "node-telegram-bot-api": "^0.56.0",
     "qrcode-terminal": "^0.12.0",
     "quicksort": "^1.1.1",
+    "sequelize": "^6.24.0",
     "whatsapp-web.js": "^1.17.1"
   },
   "scripts": {
